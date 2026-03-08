@@ -38,6 +38,8 @@ class UserService(
                     id = user.id,
                     name = user.name,
                     username = user.username,
+                    photo = user.photo,
+                    about = user.about,
                     createdAt = user.createdAt,
                     updatedAt = user.updatedAt,
                 ),
@@ -46,34 +48,27 @@ class UserService(
         call.respond(response)
     }
 
-    // Mengubah data saya
+    // Mengubah data profil (name, username, about)
     suspend fun putMe(call: ApplicationCall) {
         val user = ServiceHelper.getAuthUser(call, userRepo)
 
-        // Ambil data request
         val request = call.receive<AuthRequest>()
 
-        // Validasi request
         val validator = ValidatorHelper(request.toMap())
         validator.required("name", "Nama tidak boleh kosong")
         validator.required("username", "Username tidak boleh kosong")
         validator.validate()
 
-        // periksa user dengan username
         val existUser = userRepo.getByUsername(request.username)
         if (existUser != null && existUser.username != user.username) {
-            throw AppException(
-                409,
-                "Akun dengan username ini sudah terdaftar!"
-            )
+            throw AppException(409, "Akun dengan username ini sudah terdaftar!")
         }
 
-        user.username = request.username
         user.name = request.name
-        val isUpdated = userRepo.update(
-            user.id,
-            user
-        )
+        user.username = request.username
+        user.about = request.about  // update about
+
+        val isUpdated = userRepo.update(user.id, user)
         if (!isUpdated) {
             throw AppException(400, "Gagal memperbarui data profile!")
         }
@@ -86,7 +81,7 @@ class UserService(
         call.respond(response)
     }
 
-    // mengubah photo profile
+    // Mengubah photo profile
     suspend fun putMyPhoto(call: ApplicationCall) {
         val user = ServiceHelper.getAuthUser(call, userRepo)
 
@@ -94,7 +89,6 @@ class UserService(
         val multipartData = call.receiveMultipart(formFieldLimit = 1024 * 1024 * 5)
         multipartData.forEachPart { part ->
             when (part) {
-                // Upload file
                 is PartData.FileItem -> {
                     val ext = part.originalFileName
                         ?.substringAfterLast('.', "")
@@ -106,25 +100,21 @@ class UserService(
 
                     withContext(Dispatchers.IO) {
                         val file = File(filePath)
-                        file.parentFile.mkdirs() // pastikan folder ada
-
+                        file.parentFile.mkdirs()
                         part.provider().copyAndClose(file.writeChannel())
                         newPhoto = filePath
                     }
                 }
-
                 else -> {}
             }
-
             part.dispose()
         }
 
-        if(newPhoto == null){
+        if (newPhoto == null) {
             throw AppException(404, "Photo profile tidak tersedia!")
         }
 
-        val newFile = File(newPhoto)
-        // Cek apakah gambar berhasil diunggah
+        val newFile = File(newPhoto!!)
         if (!newFile.exists()) {
             throw AppException(404, "Photo profile gagal diunggah!")
         }
@@ -132,20 +122,14 @@ class UserService(
         val oldPhoto = user.photo
         user.photo = newPhoto
 
-        val isUpdated = userRepo.update(
-            user.id,
-            user
-        )
+        val isUpdated = userRepo.update(user.id, user)
         if (!isUpdated) {
             throw AppException(400, "Gagal memperbarui photo profile!")
         }
 
-        // Hapus photo profile lama
-        if(oldPhoto != null){
+        if (oldPhoto != null) {
             val oldFile = File(oldPhoto)
-            if(oldFile.exists()){
-                oldFile.delete()
-            }
+            if (oldFile.exists()) oldFile.delete()
         }
 
         val response = DataResponse(
@@ -156,14 +140,12 @@ class UserService(
         call.respond(response)
     }
 
-    // Mengubah data saya
+    // Mengubah kata sandi
     suspend fun putMyPassword(call: ApplicationCall) {
         val user = ServiceHelper.getAuthUser(call, userRepo)
 
-        // Ambil data request
         val request = call.receive<AuthRequest>()
 
-        // Validasi request
         val validator = ValidatorHelper(request.toMap())
         validator.required("newPassword", "Kata sandi baru tidak boleh kosong")
         validator.required("password", "Kata sandi lama tidak boleh kosong")
@@ -174,17 +156,12 @@ class UserService(
             throw AppException(404, "Kata sandi lama tidak valid!")
         }
 
-        // buat password baru
         user.password = hashPassword(request.newPassword)
-        val isUpdated = userRepo.update(
-            user.id,
-            user
-        )
+        val isUpdated = userRepo.update(user.id, user)
         if (!isUpdated) {
             throw AppException(400, "Gagal mengubah kata sandi!")
         }
 
-        // Hapus semua token
         refreshTokenRepo.deleteByUserId(user.id)
 
         val response = DataResponse(
@@ -195,14 +172,36 @@ class UserService(
         call.respond(response)
     }
 
+    // Mengubah informasi "Tentang"
+    suspend fun putMyAbout(call: ApplicationCall) {
+        val user = ServiceHelper.getAuthUser(call, userRepo)
+
+        val request = call.receive<AuthRequest>()
+
+        user.about = request.about
+
+        val isUpdated = userRepo.update(user.id, user)
+        if (!isUpdated) {
+            throw AppException(400, "Gagal memperbarui informasi tentang!")
+        }
+
+        val response = DataResponse(
+            "success",
+            "Berhasil mengubah informasi tentang",
+            null
+        )
+        call.respond(response)
+    }
+
     // Mengambil photo
     suspend fun getPhoto(call: ApplicationCall) {
         val userId = call.parameters["id"]
-            ?: throw AppException(400, "Data todo tidak valid!")
+            ?: throw AppException(400, "Data user tidak valid!")
 
-        val user = userRepo.getById(userId) ?: throw AppException(400, "User not found!")
+        val user = userRepo.getById(userId)
+            ?: throw AppException(400, "User tidak ditemukan!")
 
-        if(user.photo == null){
+        if (user.photo == null) {
             throw AppException(404, "User belum memiliki photo profile")
         }
 

@@ -34,7 +34,6 @@ class UserRepository : IUserRepository {
             createdAt = user.createdAt
             updatedAt = user.updatedAt
         }
-
         userDAO.id.value.toString()
     }
 
@@ -49,6 +48,7 @@ class UserRepository : IUserRepository {
             userDAO.username = newUser.username
             userDAO.password = newUser.password
             userDAO.photo = newUser.photo
+            userDAO.about = newUser.about
             userDAO.updatedAt = newUser.updatedAt
             true
         } else {
@@ -62,5 +62,4 @@ class UserRepository : IUserRepository {
         }
         rowsDeleted >= 1
     }
-
 }

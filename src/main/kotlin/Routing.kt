@@ -85,8 +85,10 @@ fun Application.configureRouting() {
                 put("/me/photo") {
                     userService.putMyPhoto(call)
                 }
+                put("/me/about") {
+                    userService.putMyAbout(call)
+                }
             }
-
             // Route Todos
             route("/todos") {
                 get {

@@ -131,7 +131,8 @@ Content-Type: application/json
 
 {
   "title": "Judul Todo",
-  "description": "Deskripsi Todo"
+  "description": "Deskripsi Todo",
+  "urgency": "High"
 }
 
 > {%
